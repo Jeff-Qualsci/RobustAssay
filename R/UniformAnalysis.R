@@ -55,6 +55,7 @@ ggplot(UniformData, aes(x = PlateId, y = Data)) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
   labs(x = "Plate",
        y = 'Data') +
+  scale_fill_viridis(discrete=TRUE) +
   theme_minimal() +
   theme(axis.text.x = element_blank()) +
   facet_grid(Scale ~ Assay, scales = 'free') +
