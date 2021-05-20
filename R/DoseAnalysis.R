@@ -77,7 +77,6 @@ ggplot(PlateQCData, aes(x = AssayPlate, y = Activity, fill = Cmpd)) +
   facet_grid(Scale ~ Assay, scales = 'free') +
   labs(title = 'Dose Response Plate Controls')
 
-
 PlateQCData <- PlateQCData %>%
   group_by(Assay, Run, AssayPlate, Cmpd, Scale) %>%
   summarise(Avg = mean(Activity),
@@ -93,88 +92,73 @@ PlateQCData <- PlateQCData %>%
          Zrob = (NSB_ZLimRob - TOTB_ZLimRob) / (NSB_Med - TOTB_Med)
   )
 
-# ZComp <- DRPlateStats %>%
-#   select(Assay, Scale, ReadId, Z, Zrob)%>%
-#   filter(Scale =='Mean') %>%
-#   pivot_longer(cols = 4:5, names_to = 'ZFactor', values_to = 'Zval')
-#
-# ZCompTgt1 <- ZComp %>%
-#   filter(Assay == 'Tgt1') %>%
-#   t_test(Zval ~ ZFactor, paired = TRUE) %>%
-#   add_significance() %>%
-#   add_xy_position(x = 'ZFactor')
-#
-# ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
-#          id = 'ReadId',
-#          order = c('Z', 'Zrob'),
-#          ylab = 'Z Value', xlab = 'Z Type') +
-#   stat_pvalue_manual(ZCompTgt1, tip.length = 0) +
-#   labs(title = 'Tgt1 Z Factor Comparison',
-#        subtitle = get_test_label(ZCompTgt1, detailed= TRUE))
-#
-# ZCompTgt2 <- ZComp %>%
-#   filter(Assay == 'Tgt2') %>%
-#   t_test(Zval ~ ZFactor, paired = TRUE) %>%
-#   add_significance() %>%
-#   add_xy_position(x = 'ZFactor')
-#
-# ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
-#          id = 'ReadId',
-#          order = c('Z', 'Zrob'),
-#          ylab = 'Z Value', xlab = 'Z Type') +
-#   stat_pvalue_manual(ZCompTgt2, tip.length = 0) +
-#   labs(title = 'Tgt2 Z Factor Comparison',
-#        subtitle = get_test_label(ZCompTgt2, detailed= TRUE))
+ZComp <- PlateQCData %>%
+  select(Assay, Scale, AssayPlate, Z, Zrob)%>%
+  filter(Scale =='Mean') %>%
+  pivot_longer(cols = 4:5, names_to = 'ZFactor', values_to = 'Zval')
 
-# Cmpd Data --------------------------
-# Cmpd Outliers ----------------------
-# CmpdData <- DoseData %>%
-#   filter(Conc != 0) %>%
-#   group_by(Assay, Sample) %>%
-#   mutate(AssayOutlier = outlier_robust(PctActMedData)) %>%
-#   ungroup() %>%
-#   select(-contains('_M'), -ExpTime, -Row, -Column, -PlateType, -Data) %>%
-#   pivot_longer(cols = contains('Data'), names_to = 'Scale', values_to = 'Activity') %>%
-#   mutate(Scale = if_else(str_detect(Scale, 'Mean'), 'Mean', 'Median'))
-#
-# CmpdDataSummary <- CmpdData %>%
-#   filter(Scale == 'Median') %>%
-#   group_by(Assay, Sample) %>%
-#   summarise(N = n(),
-#             Avg = mean(Activity),
-#             Median = median(Activity),
-#             StdDev = sd(Activity),
-#             MAD = mad(Activity),
-#             Outliers = sum(AssayOutlier)
-#   ) %>%
-#   ungroup()
-#
-# PlateActLims <- DoseData %>%
-#   filter(DRSample == 'TOTB') %>%
-#   group_by(ReadId) %>%
-#   summarize(PlateActLim = min(max(PctActMedData), quantile(PctActMedData, 0.75) + (1.5 * IQR(PctActMedData)))) %>%
-#   ungroup()
-#
-# CmpdData <- CmpdData %>%
-#   left_join(PlateActLims) %>%
-#   left_join(PlateActLims) %>%
-#   left_join(CmpdDataSummary) %>%
-#   mutate(PlateActive = if_else(Scale == 'Median', Activity > PlateActLim, FALSE))
-#
-# ggplot(filter(CmpdData, AssayOutlier, Scale == 'Median'), aes(x = Avg, fill = Assay, color = Assay)) +
-#   geom_histogram() +
-#   labs(title = 'Outlier Counts by Mean %Activity (All Wells)',
-#        x = "Mean % Activity",
-#        y = 'Outlier Count') +
-#   theme_minimal()
-#
-# ggplot(filter(CmpdData, AssayOutlier, PlateActive, Scale == 'Median'), aes(x = Avg, fill = Assay, color = Assay)) +
-#   geom_histogram() +
-#   labs(title = 'Outlier Counts by Mean %Activity (Plate Active Wells)',
-#        x = "Mean % Activity",
-#        y = 'Outlier Count') +
-#   theme_minimal()
-#
+ZCompTgt1 <- ZComp %>%
+  filter(Assay == 'Tgt1') %>%
+  t_test(Zval ~ ZFactor, paired = TRUE) %>%
+  add_significance() %>%
+  add_xy_position(x = 'ZFactor')
+
+ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
+         id = 'AssayPlate',
+         line.color = 'AssayPlate',
+         order = c('Z', 'Zrob'),
+         ylab = 'Z Value', xlab = 'Z Type') +
+  stat_pvalue_manual(ZCompTgt1, tip.length = 0) +
+  labs(title = 'Tgt1 Z Factor Comparison',
+       subtitle = get_test_label(ZCompTgt1, detailed= TRUE)) +
+  theme(legend.position = 'right')
+
+ZCompTgt2 <- ZComp %>%
+  filter(Assay == 'Tgt2') %>%
+  t_test(Zval ~ ZFactor, paired = TRUE) %>%
+  add_significance() %>%
+  add_xy_position(x = 'ZFactor')
+
+ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
+         id = 'AssayPlate',
+         order = c('Z', 'Zrob'),
+         line.color = 'AssayPlate',
+         ylab = 'Z Value', xlab = 'Z Type') +
+  stat_pvalue_manual(ZCompTgt2, tip.length = 0) +
+  labs(title = 'Tgt2 Z Factor Comparison',
+       subtitle = get_test_label(ZCompTgt2, detailed= TRUE)) +
+  theme(legend.position = 'right')
+
+# Cmpd Data - remove all wells without test compounds and put into tidy format ----------
+
+CmpdData <- DoseData %>%
+  filter(Conc != 0) %>%
+  select(-Data, -Row, -Column) %>%
+  group_by(Assay, AssayPlate) %>%
+  pivot_longer(cols = starts_with('Pct'), names_to = 'Scale', values_to = 'Activity') %>%
+  mutate(Scale = if_else(str_detect(Scale, 'Mean'), 'Mean', 'Median')) %>%
+  ungroup()
+
+PlateSmplData <- CmpdData %>%
+  group_by(Assay, Run, AssayPlate, Sample, Scale) %>%
+  mutate(Activity = if_else(Scale == 'Mean', mean(Activity), median(Activity))) %>%
+  ungroup()
+
+SampleSummData <- PlateSmplData %>%
+  group_by(Assay, Sample, Scale) %>%
+  mutate(Activity = if_else(Scale == 'Mean', mean(Activity), median(Activity))) %>%
+  ungroup()
+
+# Activite Well determination ------------------------
+
+# Plate Activity Limits are based on the within plate TOTB controls correspond to the Mean/Median PctAct + 3*(SD/Mad) consistent with the normalization mode (Scale). This represents a real time assessment of Active wells on the plate independent of sample replication information and could be used to determine activity for either individual wells or aggregated sample replicates on a sample plate.
+
+PlateActLims <- PlateQCData %>%
+  select(Assay, AssayPlate, Scale, starts_with('TOTB_Z')) %>%
+  mutate(ActLim = if_else(Scale == 'Mean', TOTB_ZLim, TOTB_ZLimRob)) %>%
+  select(-starts_with('TOTB'))
+
+# Phil stopping here. This is older code that shows different approaches, but needs to be updated to the current R objects above. The ggplot templates might be useful for some figures. Once I focused on one-way ANOVA Sample~Activity the direct calculation of the residuals was quicker for all the entire data set and I didn't have to subset the data by the Scale variable, but you might be better with purrr map functions than I am.
 # # Model Residuals================
 # #  All data 64 wells each sample -------
 #
