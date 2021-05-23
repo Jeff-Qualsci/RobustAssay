@@ -50,7 +50,7 @@ outlier_robust <- function(x) {
   ) %>%
   ungroup()
 
-ggplot(UniformData, aes(x = PlateId, y = Data)) +
+UnifPlot <- ggplot(UniformData, aes(x = PlateId, y = Data)) +
   geom_boxplot(aes(color = PlateType)) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
   labs(x = "Plate",
@@ -60,3 +60,6 @@ ggplot(UniformData, aes(x = PlateId, y = Data)) +
   theme(axis.text.x = element_blank()) +
   facet_grid(Scale ~ Assay, scales = 'free') +
   labs(title = 'TOTB Plate Uniformity Data')
+
+ggsave('Figures/Fig1_uniformity.jpg', plot = UnifPlot)
+

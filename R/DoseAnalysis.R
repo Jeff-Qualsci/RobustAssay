@@ -67,7 +67,7 @@ PlateQCData <- DoseData %>%
   mutate(Scale = if_else(str_detect(Scale, 'Mean'), 'Mean', 'Median')
          )
 
-ggplot(PlateQCData, aes(x = AssayPlate, y = Activity, fill = Cmpd)) +
+Plate_Control_Plot <- ggplot(PlateQCData, aes(x = AssayPlate, y = Activity, fill = Cmpd)) +
   geom_boxplot() +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 2, alpha = 0.5) +
   labs(x = "Plate",
@@ -76,6 +76,8 @@ ggplot(PlateQCData, aes(x = AssayPlate, y = Activity, fill = Cmpd)) +
   theme(axis.text.x = element_blank()) +
   facet_grid(Scale ~ Assay, scales = 'free') +
   labs(title = 'Dose Response Plate Controls')
+
+ggsave('Figures/Fig2_PlateControls.jpg', plot = Plate_Control_Plot)
 
 PlateQCData <- PlateQCData %>%
   group_by(Assay, Run, AssayPlate, Cmpd, Scale) %>%
@@ -103,7 +105,7 @@ ZCompTgt1 <- ZComp %>%
   add_significance() %>%
   add_xy_position(x = 'ZFactor')
 
-ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
+Tgt1Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
          id = 'AssayPlate',
          line.color = 'AssayPlate',
          order = c('Z', 'Zrob'),
@@ -113,13 +115,15 @@ ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
        subtitle = get_test_label(ZCompTgt1, detailed= TRUE)) +
   theme(legend.position = 'right')
 
+ggsave('Figures/Fig3a_Tgt1QC.jpg', plot = Tgt1Zplot)
+
 ZCompTgt2 <- ZComp %>%
   filter(Assay == 'Tgt2') %>%
   t_test(Zval ~ ZFactor, paired = TRUE) %>%
   add_significance() %>%
   add_xy_position(x = 'ZFactor')
 
-ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
+Tgt2Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
          id = 'AssayPlate',
          order = c('Z', 'Zrob'),
          line.color = 'AssayPlate',
@@ -128,6 +132,8 @@ ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
   labs(title = 'Tgt2 Z Factor Comparison',
        subtitle = get_test_label(ZCompTgt2, detailed= TRUE)) +
   theme(legend.position = 'right')
+
+ggsave('Figures/Fig3b_Tgt2QC.jpg', plot = Tgt2Zplot)
 
 # Cmpd Data - remove all wells without test compounds and put into tidy format ----------
 
