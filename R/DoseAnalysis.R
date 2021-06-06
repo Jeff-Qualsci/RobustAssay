@@ -7,6 +7,8 @@ library(lubridate)
 library(viridis)
 library(ggpubr)
 library(rstatix)
+library(ROCR)
+library(ggplot2)
 
 # outlier_robust Calculate outliers using box plot criteria----
 outlier_robust <- function(x) {
@@ -155,7 +157,7 @@ SampleSummData <- PlateSmplData %>%
   mutate(Activity = if_else(Scale == 'Mean', mean(Activity), median(Activity))) %>%
   ungroup()
 
-# Activite Well determination ------------------------
+# Activity Well determination ------------------------
 
 # Plate Activity Limits are based on the within plate TOTB controls correspond to the Mean/Median PctAct + 3*(SD/Mad) consistent with the normalization mode (Scale). This represents a real time assessment of Active wells on the plate independent of sample replication information and could be used to determine activity for either individual wells or aggregated sample replicates on a sample plate.
 
@@ -163,6 +165,298 @@ PlateActLims <- PlateQCData %>%
   select(Assay, AssayPlate, Scale, starts_with('TOTB_Z')) %>%
   mutate(ActLim = if_else(Scale == 'Mean', TOTB_ZLim, TOTB_ZLimRob)) %>%
   select(-starts_with('TOTB'))
+
+
+### Phil picking up here ###
+# Working with CmpdData to define "True" activity based on overall mean or median activity per "compound"
+# Compound ID is the value in the Sample column
+
+# Calculate overall mean and median for each sample in each assay
+# First, split PctActivity into two columns, one for values based on mean controls, one based on median controls
+
+CmpdData2 = CmpdData %>% pivot_wider (names_from = "Scale", values_from = "Activity", names_prefix = "PctAct.")
+
+EstTruth = CmpdData2 %>% group_by (Assay, Sample) %>% summarize (true.n = sum (!is.na (PctAct.Mean)),
+                                                                 true.mean.est = mean (PctAct.Mean),
+                                                                 true.median.est = median (PctAct.Median))
+
+# Calculate compound well summaries per Assay and plate, using both mean and median, regardless
+# of how the control wells are summarized.  In other words, we're going to look at 4 possiblities:
+# 1. control wells summarized by mean, compound wells summarized by mean
+# 2. control wells summarized by mean, compound wells summarized by median
+# 3. control wells summarized by median, compound wells summarized by mean
+# 4. control wells summarized by median, compound wells summarized by median
+
+SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>% 
+  summarize (sample.n = sum (!is.na (PctAct.Mean)),
+             mean.PctAct.Mean = mean (PctAct.Mean),
+             median.PctAct.Mean = median (PctAct.Mean),
+             mean.PctAct.Median = mean (PctAct.Median),
+             median.PctAct.Median = median (PctAct.Median))
+
+# Merge plate summary data with estimated true values
+
+SummPerPlate2 = merge (SummPerPlate, EstTruth, by=c("Assay", "Sample"))
+
+### Plot summary value per plate vs. estimated true value, means or medians
+
+ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+
+ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+
+### Plot the individual well values vs. estimate true values
+
+CmpdData3 = merge (CmpdData2, EstTruth, by=c("Assay", "Sample"))
+
+ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+
+ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+
+
+### Function to create ROC curve
+# Uses package, ROCR
+# Note that each vertex on the curve corresponds to a particular activity threshold
+# Precicted = observed percent activity per compound per plate
+# Actual = overall mean or median percent activity per compound
+# true.cutoff = cut-off for active using the "actual" values
+
+ROCcurve = function (predicted, actual, true.cutoff = 50) {
+  true.labels = ifelse (actual >= true.cutoff, 1, 0)
+  pred1 <- prediction(predicted, true.labels)
+  perf1 <- performance(pred1,"tpr","fpr")
+  auc1 <- performance(pred1,"auc")@y.values[[1]]
+  auc1
+  plot(perf1, lwd=2, col=2, main = paste ("Activity Cutoff ", true.cutoff, "%", sep=""))
+  abline(0,1)
+  legend(x = "bottomright", c(paste ("AUC=", round (auc1, 4), sep="")),   lwd=2, col=2)
+
+  # Extract the X and Y values from the ROC plot, as well as the cutoffs
+  roc.x = slot (perf1, "x.values") [[1]]
+  roc.y = slot (perf1, "y.values") [[1]]
+  cutoffs = slot (perf1, "alpha.values") [[1]]
+
+  auc.table = cbind.data.frame(cutoff=pred1@cutoffs, 
+                               tp=pred1@tp, fp=pred1@fp, tn=pred1@tn, fn=pred1@fn)
+  names (auc.table) = c("Cutoff", "TP", "FP", "TN", "FN")
+  auc.table$true.cutoff = true.cutoff
+  auc.table$sensitivity = auc.table$TP / (auc.table$TP + auc.table$FN)
+  auc.table$specificity = auc.table$TN / (auc.table$TN + auc.table$FP)
+  auc.table$FalsePosRate = 1 - auc.table$specificity
+  auc.table$FalseNegRate = 1 - auc.table$sensitivity
+  auc.table$sens_spec = auc.table$sensitivity + auc.table$specificity
+  auc.table$PPV = auc.table$TP / (auc.table$TP + auc.table$FP)
+  auc.table$NPV = auc.table$TN / (auc.table$TN + auc.table$FN)
+
+  auc.best = auc.table [auc.table$sens_spec == max (auc.table$sens_spec),]
+  #row.names (auc.best) = "NULL"
+  
+  return (list (roc.table = auc.table, roc.best = auc.best))
+}
+
+### Assay Tgt1, means
+
+ROC.mean.mean.50 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+                         ROCcurve (mean.PctAct.Mean, true.mean.est, 50))
+#ROC.mean.mean.50$roc.best
+
+ROC.mean.mean.30 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+                         ROCcurve (mean.PctAct.Mean, true.mean.est, 30))
+ROC.mean.mean.40 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+                         ROCcurve (mean.PctAct.Mean, true.mean.est, 40))
+ROC.mean.mean.60 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+                         ROCcurve (mean.PctAct.Mean, true.mean.est, 60))
+ROC.mean.mean.70 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+                         ROCcurve (mean.PctAct.Mean, true.mean.est, 70))
+
+ROC.mean.results = rbind (ROC.mean.mean.30$roc.best,
+                          ROC.mean.mean.40$roc.best,
+                          ROC.mean.mean.50$roc.best,
+                          ROC.mean.mean.60$roc.best,
+                          ROC.mean.mean.70$roc.best)
+
+## The approach above provides an ROC curve and it chooses an optimal activity cutoff that maximizes
+## sensitivity + specificity.  First, a cutoff for true activity is set (30, 40, 50, 60, or 70).
+## Then for each of those cutoffs, an optimal cutoff for the plate mean or median is determined.
+## I'm not sure this is the best approach, so below I am switching to using the same cutoff for the
+## estimated true values and the assay screening values (plate mean or individual wells).  This seems
+## to have better balance between false positives and false negatives.  With the ROC approach, there's
+## more weight given to false negatives since there is more negative (inactive) data.
+
+### Use the same cutoff for plate results as for the estimated true values
+
+same.cutoff = function (predicted, actual, cutoff) {
+  TP = sum (predicted >= cutoff & actual >= cutoff)
+  TN = sum (predicted <  cutoff & actual <  cutoff)
+  FP = sum (predicted >= cutoff & actual <  cutoff)
+  FN = sum (predicted <  cutoff & actual >= cutoff)
+  sensitivity = TP / (TP + FN)
+  specificity = TN / (TN + FP)
+  FalsePosRate = 1 - specificity
+  FalseNegRate = 1 - sensitivity
+  sens_spec = sensitivity + specificity
+  PPV = TP / (TP + FP)
+  NPV = TN / (TN + FN)
+  return (cbind (cutoff, TP, FP, TN, FN, sensitivity, specificity, FalsePosRate, FalseNegRate, sens_spec, PPV, NPV))
+}
+
+PerPlate.Tgt1 = SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ]
+
+mean.results.Tgt1 = rbind.data.frame (
+  with (PerPlate.Tgt1, same.cutoff (mean.PctAct.Mean, true.mean.est, 30)),
+  with (PerPlate.Tgt1, same.cutoff (mean.PctAct.Mean, true.mean.est, 40)),
+  with (PerPlate.Tgt1, same.cutoff (mean.PctAct.Mean, true.mean.est, 50)),
+  with (PerPlate.Tgt1, same.cutoff (mean.PctAct.Mean, true.mean.est, 60)),
+  with (PerPlate.Tgt1, same.cutoff (mean.PctAct.Mean, true.mean.est, 70)))
+mean.results.Tgt1$Scale = "Mean"
+
+### Assay Tgt1, medians
+
+median.results.Tgt1 = rbind.data.frame (
+  with (PerPlate.Tgt1, same.cutoff (median.PctAct.Median, true.median.est, 30)),
+  with (PerPlate.Tgt1, same.cutoff (median.PctAct.Median, true.median.est, 40)),
+  with (PerPlate.Tgt1, same.cutoff (median.PctAct.Median, true.median.est, 50)),
+  with (PerPlate.Tgt1, same.cutoff (median.PctAct.Median, true.median.est, 60)),
+  with (PerPlate.Tgt1, same.cutoff (median.PctAct.Median, true.median.est, 70)))
+median.results.Tgt1$Scale = "Median"
+
+### Plot PPV and NPV results, Mean vs Median, for Tgt1
+
+plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1), 
+                                  c("PPV", "NPV"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.results.Tgt1, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Plot sensitivity and specificity results, Mean vs Median, for Tgt1
+
+plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1), 
+                                  c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.results.Tgt1, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Assay Tgt2, means
+
+PerPlate.Tgt2 = SummPerPlate2 [SummPerPlate2$Assay == "Tgt2", ]
+
+mean.results.Tgt2 = rbind.data.frame (
+  with (PerPlate.Tgt2, same.cutoff (mean.PctAct.Mean, true.mean.est, 30)),
+  with (PerPlate.Tgt2, same.cutoff (mean.PctAct.Mean, true.mean.est, 40)),
+  with (PerPlate.Tgt2, same.cutoff (mean.PctAct.Mean, true.mean.est, 50)),
+  with (PerPlate.Tgt2, same.cutoff (mean.PctAct.Mean, true.mean.est, 60)),
+  with (PerPlate.Tgt2, same.cutoff (mean.PctAct.Mean, true.mean.est, 70)))
+mean.results.Tgt2$Scale = "Mean"
+
+### Assay Tgt2, medians
+
+median.results.Tgt2 = rbind.data.frame (
+  with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 30)),
+  with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 40)),
+  with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 50)),
+  with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 60)),
+  with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 70)))
+median.results.Tgt2$Scale = "Median"
+
+### Plot Mean vs Median results for Tgt1
+
+plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt2, median.results.Tgt2),
+                                  c("PPV", "NPV"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Plot sensitivity and specificity results, Mean vs Median, for Tgt2
+
+plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt2), 
+                                  c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+######################################################################
+### Repeat the same-cutoff analysis above for the individual well values
+
+IndivWells.Tgt1 = CmpdData3 [CmpdData3$Assay == "Tgt1", ]
+
+### Assay Tgt1, means
+
+Indiv.meanCtrl.Tgt1 = rbind.data.frame (
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Mean, true.mean.est, 30)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Mean, true.mean.est, 40)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Mean, true.mean.est, 50)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Mean, true.mean.est, 60)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Mean, true.mean.est, 70)))
+Indiv.meanCtrl.Tgt1$Scale = "Mean"
+
+### Assay Tgt1, medians
+
+Indiv.medianCtrl.Tgt1 = rbind.data.frame (
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Median, true.median.est, 30)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Median, true.median.est, 40)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Median, true.median.est, 50)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Median, true.median.est, 60)),
+  with (IndivWells.Tgt1, same.cutoff (PctAct.Median, true.median.est, 70)))
+Indiv.medianCtrl.Tgt1$Scale = "Median"
+
+### Plot PPV and NPV results, Mean vs Median, for Tgt1
+
+plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1), 
+                                c("PPV", "NPV"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Plot sensitivity and specificity results, Mean vs Median, for Tgt1
+
+plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1), 
+                                c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Assay Tgt2, means
+
+IndivWells.Tgt2 = CmpdData3 [CmpdData3$Assay == "Tgt2", ]
+
+Indiv.meanCtrl.Tgt2 = rbind.data.frame (
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Mean, true.mean.est, 30)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Mean, true.mean.est, 40)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Mean, true.mean.est, 50)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Mean, true.mean.est, 60)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Mean, true.mean.est, 70)))
+Indiv.meanCtrl.Tgt2$Scale = "Mean"
+
+### Assay Tgt2, medians
+
+Indiv.medianCtrl.Tgt2 = rbind.data.frame (
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Median, true.median.est, 30)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Median, true.median.est, 40)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Median, true.median.est, 50)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Median, true.median.est, 60)),
+  with (IndivWells.Tgt2, same.cutoff (PctAct.Median, true.median.est, 70)))
+Indiv.medianCtrl.Tgt2$Scale = "Median"
+
+### Plot Mean vs Median results for Tgt1
+
+plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt2, Indiv.medianCtrl.Tgt2),
+                                c("PPV", "NPV"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+### Plot sensitivity and specificity results, Mean vs Median, for Tgt2
+
+plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt2), 
+                                c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
+
+ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=paste (Result, Scale))) +
+  geom_line() 
+
+
 
 # Phil stopping here. This is older code that shows different approaches, but needs to be updated to the current R objects above. The ggplot templates might be useful for some figures. Once I focused on one-way ANOVA Sample~Activity the direct calculation of the residuals was quicker for all the entire data set and I didn't have to subset the data by the Scale variable, but you might be better with purrr map functions than I am.
 # # Model Residuals================
