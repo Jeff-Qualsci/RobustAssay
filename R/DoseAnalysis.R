@@ -199,24 +199,63 @@ SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>%
 
 SummPerPlate2 = merge (SummPerPlate, EstTruth, by=c("Assay", "Sample"))
 
+# Put the two assays in alphabetical order
+
+SummPerPlate2$Assay = factor (SummPerPlate2$Assay, levels = c("Tgt1", "Tgt2"))
+
 ### Plot summary value per plate vs. estimated true value, means or medians
 
+<<<<<<< HEAD
 ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+=======
+(data1 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
+  ylab ("Mean Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
+  ggtitle ("Mean % Activity Per Plate vs. Estimated True Activity"))
+
+(data2 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=median.PctAct.Median)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
+  ylab ("Median Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
+  ggtitle ("Median % Activity Per Plate vs. Estimated True Activity"))
+
+# Combined plot of the plate means vs. estimated true values
+
+plots.d1 = plot_grid (data1, data2, ncol=1)
+plots.d1
+ggsave('Figures/test-vs-truth-n4.jpg', plot = plots.d1)
+>>>>>>> f7af9cb207fe3ce504692b9e6d62fb9ba67c6465
 
 ### Plot the individual well values vs. estimate true values
 
 CmpdData3 = merge (CmpdData2, EstTruth, by=c("Assay", "Sample"))
 
+<<<<<<< HEAD
 ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+=======
+CmpdData3$Assay = factor (CmpdData3$Assay, levels = c("Tgt1", "Tgt2"))
 
+data3 = ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
+  ylab ("Percent Activity, Control Means") + xlab ("Estimated True Percent Activity") +
+  ggtitle ("Percent Activity per Well vs. Estimated True Activity")
+
+data4 = ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) + 
+  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
+  ylab ("Percent Activity, Control Medians") + xlab ("Estimated True Percent Activity") +
+  ggtitle ("Robust % Activity per Well vs. Estimated True Activity")
+>>>>>>> f7af9cb207fe3ce504692b9e6d62fb9ba67c6465
+
+plots.d2 = plot_grid (data3, data4, ncol=1)
+plots.d2
+ggsave('Figures/test-vs-truth-n1.jpg', plot = plots.d2)
 
 ### Function to create ROC curve
 # Uses package, ROCR
