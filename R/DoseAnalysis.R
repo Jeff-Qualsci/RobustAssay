@@ -1,4 +1,4 @@
-Yes# Dose Response Data Analysis
+# Dose Response Data Analysis
 # All wells contain the total binding (TOTB) control which generates the maximum raw data signal, but represents vehicle (0% biological activity).
 
 #Set up -------------------------------------------------
@@ -205,19 +205,18 @@ SummPerPlate2$Assay = factor (SummPerPlate2$Assay, levels = c("Tgt1", "Tgt2"))
 
 ### Plot summary value per plate vs. estimated true value, means or medians
 
-<<<<<<< HEAD
 ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
-=======
-(data1 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) + 
+
+(data1 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
   ylab ("Mean Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
   ggtitle ("Mean % Activity Per Plate vs. Estimated True Activity"))
 
-(data2 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=median.PctAct.Median)) + 
+(data2 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=median.PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
   ylab ("Median Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
   ggtitle ("Median % Activity Per Plate vs. Estimated True Activity"))
@@ -227,31 +226,27 @@ ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) +
 plots.d1 = plot_grid (data1, data2, ncol=1)
 plots.d1
 ggsave('Figures/test-vs-truth-n4.jpg', plot = plots.d1)
->>>>>>> f7af9cb207fe3ce504692b9e6d62fb9ba67c6465
 
 ### Plot the individual well values vs. estimate true values
 
 CmpdData3 = merge (CmpdData2, EstTruth, by=c("Assay", "Sample"))
 
-<<<<<<< HEAD
 ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
-=======
 CmpdData3$Assay = factor (CmpdData3$Assay, levels = c("Tgt1", "Tgt2"))
 
-data3 = ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) + 
+data3 = ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
   ylab ("Percent Activity, Control Means") + xlab ("Estimated True Percent Activity") +
   ggtitle ("Percent Activity per Well vs. Estimated True Activity")
 
-data4 = ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) + 
+data4 = ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
   ylab ("Percent Activity, Control Medians") + xlab ("Estimated True Percent Activity") +
   ggtitle ("Robust % Activity per Well vs. Estimated True Activity")
->>>>>>> f7af9cb207fe3ce504692b9e6d62fb9ba67c6465
 
 plots.d2 = plot_grid (data3, data4, ncol=1)
 plots.d2
@@ -558,441 +553,3 @@ plots.n1
 ggsave('Figures/N_1perSample.jpg', plot = plots.n1)
 
 
-# Phil stopping here. This is older code that shows different approaches, but needs to be updated to the current R objects above. The ggplot templates might be useful for some figures. Once I focused on one-way ANOVA Sample~Activity the direct calculation of the residuals was quicker for all the entire data set and I didn't have to subset the data by the Scale variable, but you might be better with purrr map functions than I am.
-# # Model Residuals================
-# #  All data 64 wells each sample -------
-#
-# CmpdOutlierRate <- CmpdData %>%
-#   group_by(Assay) %>%
-#   summarise(Wells = n(), Outliers = sum(AssayOutlier), OutlierRate = Outliers/Wells) %>%
-#   ungroup()
-#
-# #All Data MSDs (64 Observatuibs/Sample) --------------------
-# SampleResiduals <- CmpdData %>%
-#   group_by(Assay,Sample) %>%
-#   mutate(TrueAct = if_else(Scale == 'Mean', mean(Activity), median(Activity)),
-#          Residual = Activity - TrueAct) %>%
-#   ungroup()
-#
-# ggplot(SampleResiduals, aes(x= Residual)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = quantile(SampleResiduals$Residual, 0.95), linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = quantile(SampleResiduals$Residual, 0.05), linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Sample Residuals by Assay and Scale',
-#        x = 'Residuals') +
-#   theme_minimal() +
-#   facet_grid(Scale ~ Assay)
-#
-# SampleMSD <- SampleResiduals %>%
-#   group_by(Assay, Scale) %>%
-#   summarise(SDResiduals = sd(Residual),
-#             MSD = 2 * sqrt(2) * SDResiduals,
-#             N = n()) %>%
-#   ungroup()%>%
-#   mutate(Summarization = 'All')
-#
-# # Samples summarized by plate and 16 plates/sample  -------------
-# SamplePlateResiduals <- CmpdData %>%
-#   group_by(Assay, Scale, ReadId, Sample) %>%
-#   summarise(MeanAct = mean(Activity), MedAct = median(Activity)) %>%
-#   ungroup() %>%
-#   mutate(Activity = if_else(Scale == 'Mean', MeanAct, MedAct)) %>%
-#   select(-starts_with('M')) %>%
-#   group_by(Assay,Sample, Scale) %>%
-#   mutate(TrueAct = if_else(Scale == 'Mean', mean(Activity), median(Activity)),
-#          Residual = Activity - TrueAct) %>%
-#   ungroup()
-#
-# ggplot(SamplePlateResiduals, aes(x= Residual)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = quantile(SamplePlateResiduals$Residual, 0.95), linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = quantile(SamplePlateResiduals$Residual, 0.05), linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Sample:Plate Residuals by Assay and Scale',
-#        x = 'Residuals') +
-#   theme_minimal() +
-#   facet_grid(Scale ~ Assay)
-#
-# SamplePlateMSD <- SamplePlateResiduals %>%
-#   group_by(Assay, Scale) %>%
-#   summarise(SDResiduals = sd(Residual),
-#             MSD = 2 * sqrt(2) * SDResiduals,
-#             N = n()) %>%
-#   ungroup() %>%
-#   mutate(Summarization = 'Plate')
-#
-# # Samples summarized by Run and Plate Order and 2 plates/sample  -------------
-# SamplePlateRunResiduals <- CmpdData %>%
-#   group_by(Assay, Scale, Run, RunSample) %>%
-#   summarise(MeanAct = mean(Activity), MedAct = median(Activity)) %>%
-#   ungroup() %>%
-#   mutate(Activity = if_else(Scale == 'Mean', MeanAct, MedAct)) %>%
-#   select(-starts_with('M')) %>%
-#   group_by(Assay, RunSample, Scale) %>%
-#   mutate(TrueAct = if_else(Scale == 'Mean', mean(Activity), median(Activity)),
-#          Residual = Activity - TrueAct) %>%
-#   ungroup()
-#
-# ggplot(SamplePlateRunResiduals, aes(x= Residual)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = quantile(SamplePlateRunResiduals$Residual, 0.95), linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = quantile(SamplePlateRunResiduals$Residual, 0.05), linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Sample:Plate:Run Residuals by Assay and Scale',
-#        x = 'Residuals') +
-#   theme_minimal() +
-#   facet_grid(Scale ~ Assay)
-#
-# SamplePlateRunMSD <- SamplePlateResiduals %>%
-#   group_by(Assay, Scale) %>%
-#   summarise(SDResiduals = sd(Residual),
-#             MSD = 2 * sqrt(2) * SDResiduals,
-#             N = n()) %>%
-#   ungroup() %>%
-#   mutate(Summarization = 'Plate and Order')
-#
-# # MSD Summary Table -------------------
-#
-# SummMSDTable <- SampleMSD %>%
-#   bind_rows(SamplePlateMSD) %>%
-#   bind_rows(SamplePlateRunMSD)
-#
-# #ANOVAs ---------------------
-# #All Data MSDs (64 Observatuibs/Sample) --------------------
-# # Tgt1 ============================================
-# # 2-way ANOVA -------------------
-# Tgt1All.aov<- aov(Activity ~ Sample * Scale, data = filter(CmpdData, Assay == 'Tgt1'))
-#
-# Tgt1AllMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt1All.aov))
-#
-# plot(Tgt1All.aov, 2)
-#
-# A <- quantile(Tgt1All.aov$residuals, 0.025)
-# B <- quantile(TTgt1All.aov$residuals, 0.975)
-#
-# ggplot(Tgt1All.aov, aes(x= Tgt1All.aov$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 All Data',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt1All.aov))
-#
-# cat('MSD = ', signif(Tgt1AllMSD, 3))
-#
-# # 1-way ANOVA (Mean) =========================
-# Tgt1AllMean.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt1', Scale == 'Mean'))
-#
-#
-# Tgt1AllMeanMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt1AllMean.aov))
-#
-# plot(Tgt1AllMean.aov, 2)
-#
-# A <- quantile(Tgt1AllMean.aov$residuals, 0.025)
-# B <- quantile(Tgt1AllMean.aov$residuals, 0.975)
-#
-# ggplot(Tgt1AllMean.aov, aes(x= Tgt1AllMean.aov$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 All Data (Means)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt1AllMean.aov))
-#
-# cat('MSD = ', signif(Tgt1AllMeanMSD, 3))
-#
-# # 1-way ANOVA Median ============
-# Tgt1AllMed.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt1', Scale == 'Median'))
-#
-# Tgt1AllMedMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt1AllMed))
-#
-# plot(Tgt1AllMed, 2)
-#
-# A <- quantile(Tgt1AllMed$residuals, 0.025)
-# B <- quantile(Tgt1AllMed$residuals, 0.975)
-#
-# ggplot(Tgt1AllMed, aes(x= Tgt1AllMed$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 All Data (Medians)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt1AllMed))
-#
-# cat('MSD = ', signif(Tgt1AllMedMSD, 3))
-#
-# # Tgt2 ANOVAS ------------------
-# # 2-way ANOVA ---------------
-# Tgt2All.aov<- aov(Activity ~ Sample * Scale, data = filter(CmpdData, Assay == 'Tgt2', Scale != 'Raw'))
-#
-# Tgt2AllMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt2All.aov))
-#
-# plot(Tgt2All.aov, 2)
-#
-# A <- quantile(Tgt2All.aov$residuals, 0.025)
-# B <- quantile(Tgt2All.aov$residuals, 0.975)
-#
-# ggplot(Tgt2All.aov, aes(x= Tgt2All.aov$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 All Data',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt2All.aov))
-#
-# cat('MSD = ', signif(Tgt2AllMSD, 3))
-#
-# # 1-way ANOVA (Mean) =========================
-# Tgt2AllMean.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt2', Scale == 'Mean'))
-#
-# Tgt2AllMeanMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt2AllMean.aov))
-#
-# plot(Tgt2AllMean.aov, 2)
-#
-# A <- quantile(Tgt2AllMean.aov$residuals, 0.025)
-# B <- quantile(Tgt2AllMean.aov$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 All Data (Means)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt2AllMean.aov))
-#
-# cat('MSD = ', signif(Tgt2AllMeanMSD, 3))
-#
-# # 1-way ANOVA Median ============
-# Tgt2AllMed.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt2', Scale == 'Median'))
-#
-# Tgt2AllMedMSD <- 2 * sqrt(2) * sd(residuals(object = Tgt2AllMed.aov))
-#
-# plot(Tgt2AllMed.aov, 2)
-#
-# A <- quantile(Tgt2AllMed.aov$residuals, 0.025)
-# B <- quantile(Tgt2AllMed.aov$residuals, 0.975)
-#
-# ggplot(Tgt2AllMed.aov, aes(x= Tgt2AllMed.aov$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 All Data (Medians)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Tgt2AllMed.aov))
-#
-# cat('MSD = ', signif(Tgt2AllMedMSD, 3))
-#
-# # Plate median MSDs ------------------------------
-# # Samples summarized by plate and 16 plates/sample  -------------
-# CmpdSampleData <- CmpdData %>%
-#   filter(Scale != 'Raw') %>%
-#   group_by(Assay, ReadId, Sample) %>%
-#   mutate(Activity = if_else(Scale =='Mean', mean(Activity), median(Activity))) %>%
-#   ungroup() %>%
-#   select(-(13:19)) %>%
-#   unique()
-#
-# # ANOVAs -----------
-# # Tgt1 Sample--------------------
-# Tgt1Sample.aov<- aov(Activity ~ Sample * Scale, data = filter(CmpdData, Assay == 'Tgt1'))
-#
-# Temp <- Tgt1Sample.aov
-#
-# Tgt1SampleMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 Plate Summarized Data',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt1SampleMSD, 3))
-#
-# # 1-way ANOVA (Means) --------------
-# Tgt1SampleMean.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt1', Scale == 'Mean'))
-#
-# Temp <- Tgt1SampleMean.aov
-#
-# Tgt1SampleMeanMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 Plate Summarized Data (Means',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt1SampleMeanMSD, 3))
-#
-# # 1-way ANOVA Medians -------------------
-# Tgt1SampleMedian.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt1', Scale == 'Median'))
-#
-# Temp <- Tgt1SampleMedian.aov
-#
-# Tgt1SampleMedianMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt1 Plate Summarized Data (Medians',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt1SampleMedianMSD, 3))
-#
-# # Tgt2 ------------------------
-# # 2-way ANOVA --------------------
-# Tgt2Sample.aov<- aov(Activity ~ Sample * Scale, data = filter(CmpdData, Assay == 'Tgt2'))
-#
-# Temp <- Tgt2Sample.aov
-#
-# Tgt2SampleMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 Plate Summarized Data',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt2SampleMSD, 3))
-#
-# # 1-way ANOVA Means --------------
-# Tgt2SampleMean.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt2', Scale == 'Mean'))
-#
-# Temp <- Tgt2SampleMean.aov
-#
-# Tgt2SampleMeanMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 Plate Summarized Data (Means)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt2SampleMeanMSD, 3))
-#
-# # 1-way ANOVA Median -------------------------------
-# Tgt2SampleMedian.aov<- aov(Activity ~ Sample, data = filter(CmpdData, Assay == 'Tgt2', Scale == 'Median'))
-#
-# Temp <- Tgt2SampleMedian.aov
-#
-# Tgt2SampleMedianMSD <- 2 * sqrt(2) * sd(residuals(object = Temp))
-#
-# plot(Temp, 2)
-#
-# A <- quantile(Temp$residuals, 0.025)
-# B <- quantile(Temp$residuals, 0.975)
-#
-# ggplot(Temp, aes(x= Temp$residuals)) +
-#   geom_histogram() +
-#   geom_vline(xintercept = A, linetype = 'dashed', color = 'blue') +
-#   geom_vline(xintercept = B, linetype = 'dashed', color = 'blue') +
-#   labs(title = 'Model Tgt2 Plate Summarized Data (Medians)',
-#        x = 'Residuals') +
-#   theme_minimal()
-#
-# print(summary(Temp))
-#
-# cat('MSD = ', signif(Tgt2SampleMedianMSD, 3))
-#
-#
-# # Dose Response Curves -----------------------------------------------
-#
-# ggplot(filter(CmpdData, ReadId == '05', Scale == 'Median'), aes(x = Conc, y = Activity, shape = DRSample, color = DRSample)) +
-#   geom_point() +
-#   geom_smooth(method = 'loess', se = FALSE) +
-#   labs(title = 'Tgt2 Dose Curves (representative plate',
-#        x = 'Concentration',
-#        y = 'Activity') +
-#   scale_x_log10() +
-#   theme_minimal()
-#
-# ggplot(filter(CmpdData, ReadId == '21', Scale == 'Median'), aes(x = Conc, y = Activity, shape = DRSample, color = DRSample)) +
-#   geom_point() +
-#   geom_smooth(method = 'loess', se = FALSE) +
-#   labs(title = 'Tgt1 Dose Curves (representative plate',
-#        x = 'Concentration',
-#        y = 'Activity') +
-#   scale_x_log10() +
-#   theme_minimal()
-#
-# # Residuals vs Activity --------------------
-# CmpdData <- CmpdData %>%
-#   group_by(ReadId, Sample, Scale) %>%
-#   mutate(SumAct = if_else(Scale == 'Median', median(Activity), mean(Activity)),
-#          Residual = SumAct - Activity,
-#          Lim = if_else(Scale == 'Median', 2 * mad(Residual), 2 * sd(Residual)),
-#          Extreme = abs(Residual > 50)
-#   )%>%
-#   ungroup()
-#
-# ggplot(CmpdData, aes(x = SumAct, y = Residual)) +
-#   geom_point(alpha = 0.2) +
-#   geom_smooth() +
-#   labs(x = "Activity",
-#        y = 'Residual') +
-#   theme_minimal() +
-#   facet_grid(Assay ~ Scale, scales = 'free') +
-#   labs(title = 'Residials vs. Sample Summarized Activity')
-#
-# ggplot(SamplePlateResiduals, aes(x = TrueAct, y = Residual)) +
-#   geom_point(alpha = 0.2) +
-#   geom_smooth() +
-#   labs(x = "Activity",
-#        y = 'Residual') +
-#   theme_minimal() +
-#   facet_grid(Assay ~ Scale, scales = 'free') +
-#   labs(title = 'Residials vs. Sample Summarized Activity')
