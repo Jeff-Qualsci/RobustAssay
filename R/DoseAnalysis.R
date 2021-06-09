@@ -1,4 +1,4 @@
-# Dose Response Data Analysis
+Yes# Dose Response Data Analysis
 # All wells contain the total binding (TOTB) control which generates the maximum raw data signal, but represents vehicle (0% biological activity).
 
 #Set up -------------------------------------------------
@@ -188,7 +188,7 @@ EstTruth = CmpdData2 %>% group_by (Assay, Sample) %>% summarize (true.n = sum (!
 # 3. control wells summarized by median, compound wells summarized by mean
 # 4. control wells summarized by median, compound wells summarized by median
 
-SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>% 
+SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>%
   summarize (sample.n = sum (!is.na (PctAct.Mean)),
              mean.PctAct.Mean = mean (PctAct.Mean),
              median.PctAct.Mean = median (PctAct.Mean),
@@ -201,20 +201,20 @@ SummPerPlate2 = merge (SummPerPlate, EstTruth, by=c("Assay", "Sample"))
 
 ### Plot summary value per plate vs. estimated true value, means or medians
 
-ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) + 
+ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
-ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) + 
+ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 ### Plot the individual well values vs. estimate true values
 
 CmpdData3 = merge (CmpdData2, EstTruth, by=c("Assay", "Sample"))
 
-ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) + 
+ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
-ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) + 
+ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
   geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
 
 
@@ -240,7 +240,7 @@ ROCcurve = function (predicted, actual, true.cutoff = 50) {
   roc.y = slot (perf1, "y.values") [[1]]
   cutoffs = slot (perf1, "alpha.values") [[1]]
 
-  auc.table = cbind.data.frame(cutoff=pred1@cutoffs, 
+  auc.table = cbind.data.frame(cutoff=pred1@cutoffs,
                                tp=pred1@tp, fp=pred1@fp, tn=pred1@tn, fn=pred1@fn)
   names (auc.table) = c("Cutoff", "TP", "FP", "TN", "FN")
   auc.table$true.cutoff = true.cutoff
@@ -254,23 +254,23 @@ ROCcurve = function (predicted, actual, true.cutoff = 50) {
 
   auc.best = auc.table [auc.table$sens_spec == max (auc.table$sens_spec),]
   #row.names (auc.best) = "NULL"
-  
+
   return (list (roc.table = auc.table, roc.best = auc.best))
 }
 
 ### Assay Tgt1, means
 
-ROC.mean.mean.50 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+ROC.mean.mean.50 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ],
                          ROCcurve (mean.PctAct.Mean, true.mean.est, 50))
 #ROC.mean.mean.50$roc.best
 
-ROC.mean.mean.30 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+ROC.mean.mean.30 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ],
                          ROCcurve (mean.PctAct.Mean, true.mean.est, 30))
-ROC.mean.mean.40 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+ROC.mean.mean.40 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ],
                          ROCcurve (mean.PctAct.Mean, true.mean.est, 40))
-ROC.mean.mean.60 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+ROC.mean.mean.60 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ],
                          ROCcurve (mean.PctAct.Mean, true.mean.est, 60))
-ROC.mean.mean.70 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ], 
+ROC.mean.mean.70 = with (SummPerPlate2 [SummPerPlate2$Assay == "Tgt1", ],
                          ROCcurve (mean.PctAct.Mean, true.mean.est, 70))
 
 ROC.mean.results = rbind (ROC.mean.mean.30$roc.best,
@@ -330,7 +330,7 @@ median.results.Tgt1$Scale = "Median"
 
 ### Plot PPV and NPV results, Mean vs Median, for Tgt1
 
-plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1), 
+plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1),
                                   c("PPV", "NPV"), names_to = "Result", values_to = "Value")
 
 # Re-order PPV and NPV
@@ -344,12 +344,12 @@ plot1
 
 ### Plot sensitivity and specificity results, Mean vs Median, for Tgt1
 
-plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1), 
+plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1),
                                   c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
 plot2 = ggplot (plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") 
+  ggtitle ("Target 1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
 plot2
 
 ### Assay Tgt2, means
@@ -388,18 +388,18 @@ plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt2, median.results.Tgt2)
 plot.results.Tgt2$Result = factor (plot.results.Tgt2$Result, levels = c("PPV", "NPV"))
 
 plot3 = ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
 plot3
 
 ### Plot sensitivity and specificity results, Mean vs Median, for Tgt2
 
-plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt2), 
+plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt2),
                                   c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
 plot4 = ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
 plot4
 
 ## Put the four plots above together into one plot
@@ -439,7 +439,7 @@ Indiv.medianCtrl.Tgt1$Scale = "Median"
 
 ### Plot PPV and NPV results, Mean vs Median, for Tgt1
 
-plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1), 
+plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1),
                                 c("PPV", "NPV"), names_to = "Result", values_to = "Value")
 
 # Re-order PPV and NPV
@@ -447,18 +447,18 @@ plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt
 plot.Indiv.Tgt1$Result = factor (plot.Indiv.Tgt1$Result, levels = c("PPV", "NPV"))
 
 plot5 = ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
 plot5
 
 ### Plot sensitivity and specificity results, Mean vs Median, for Tgt1
 
-plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1), 
+plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1),
                                 c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
 plot6 = ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
 plot6
 
 ### Assay Tgt2, means
@@ -497,18 +497,18 @@ plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt2, Indiv.medianCtrl.Tgt
 plot.Indiv.Tgt2$Result = factor (plot.Indiv.Tgt2$Result, levels = c("PPV", "NPV"))
 
 plot7 = ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
 plot7
 
 ### Plot sensitivity and specificity results, Mean vs Median, for Tgt2
 
-plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt2), 
+plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt2),
                                 c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
 plot8 = ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) + 
-  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") 
+  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
+  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
 plot8
 
 ## Put the four plots above together into one plot
