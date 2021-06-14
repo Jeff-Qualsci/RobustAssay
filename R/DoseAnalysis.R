@@ -10,6 +10,7 @@ library(rstatix)
 library(ROCR)
 library(ggplot2)
 library(cowplot)
+library(patchwork)
 
 # outlier_robust Calculate outliers using box plot criteria----
 outlier_robust <- function(x) {
@@ -24,7 +25,7 @@ PlateId2  <- data.frame(PlateId2 = 1:28)
 DoseData <- read_csv('Data/AllData.csv')%>%
   filter(PlateMap == 'Dose') %>%
   select(-PlateMap) %>%
-  mutate(Assay = as_factor(Assay),
+  mutate(Assay = factor(Assay, levels = c("Tgt1", "Tgt2")),
          PlateType = as.character(PlateType),
          Well = as_factor(Well),
          PlateId = as.character(PlateId)) %>%
@@ -70,17 +71,31 @@ PlateQCData <- DoseData %>%
   mutate(Scale = if_else(str_detect(Scale, 'Mean'), 'Mean', 'Median')
          )
 
-Plate_Control_Plot <- ggplot(PlateQCData, aes(x = AssayPlate, y = Activity, fill = Cmpd)) +
+# Create Control Well Plots
+T1Mean <- ggplot(filter(PlateQCData, Assay == 'Tgt1', Scale == 'Mean'), aes(x = PlateId, y = Activity, fill = Cmpd)) +
   geom_boxplot() +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 2, alpha = 0.5) +
-  labs(x = "Plate",
-       y = 'Data') +
-  theme_minimal() +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
+  labs(x = 'Plate',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
   theme(axis.text.x = element_blank()) +
-  facet_grid(Scale ~ Assay, scales = 'free') +
-  labs(title = 'Dose Response Plate Controls')
+  theme(legend.position = 'none') +
+  labs(title = 'Tgt1')
 
-ggsave('Figures/Fig2_PlateControls.jpg', plot = Plate_Control_Plot)
+T2Mean <- ggplot(filter(PlateQCData, Assay == 'Tgt2', Scale == 'Mean'), aes(x = PlateId, y = Activity, fill = Cmpd)) +
+  geom_boxplot() +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
+  labs(x = 'Plate',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
+  theme(axis.text.x = element_blank()) +
+  labs(title = 'Tgt2')
+
+Fig2 <- (T1Mean / T2Mean) +
+  plot_annotation(title = 'Figure 2 Plate Controls.', tag_levels = 'A') &
+  theme(plot.tag = element_text(face = 'bold'))
+
+ggsave('Figures/Weidner Fig 2.jpg', plot = Fig2, height = 6, width = 6, units = 'in', dpi = 300)
 
 PlateQCData <- PlateQCData %>%
   group_by(Assay, Run, AssayPlate, Cmpd, Scale) %>%
@@ -110,15 +125,13 @@ ZCompTgt1 <- ZComp %>%
 
 Tgt1Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
          id = 'AssayPlate',
-         line.color = 'AssayPlate',
          order = c('Z', 'Zrob'),
+         fill = 'ZFactor',
          ylab = 'Z Value', xlab = 'Z Type') +
   stat_pvalue_manual(ZCompTgt1, tip.length = 0) +
-  labs(title = 'Tgt1 Z Factor Comparison',
+  labs(title = 'Tgt1',
        subtitle = get_test_label(ZCompTgt1, detailed= TRUE)) +
-  theme(legend.position = 'right')
-
-ggsave('Figures/Fig3a_Tgt1QC.jpg', plot = Tgt1Zplot)
+  theme(legend.position = 'none')
 
 ZCompTgt2 <- ZComp %>%
   filter(Assay == 'Tgt2') %>%
@@ -129,14 +142,18 @@ ZCompTgt2 <- ZComp %>%
 Tgt2Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
          id = 'AssayPlate',
          order = c('Z', 'Zrob'),
-         line.color = 'AssayPlate',
+         fill = 'ZFactor',
          ylab = 'Z Value', xlab = 'Z Type') +
   stat_pvalue_manual(ZCompTgt2, tip.length = 0) +
-  labs(title = 'Tgt2 Z Factor Comparison',
+  labs(title = 'Tgt2 Z',
        subtitle = get_test_label(ZCompTgt2, detailed= TRUE)) +
-  theme(legend.position = 'right')
+  theme(legend.position = 'none')
 
-ggsave('Figures/Fig3b_Tgt2QC.jpg', plot = Tgt2Zplot)
+Fig3 <- (Tgt1Zplot / Tgt2Zplot) +
+  plot_annotation(title = 'Figure 3 Standard and Robust Z Comparisons.', tag_levels = 'A') &
+  theme(plot.tag = element_text(face = 'bold'))
+
+ggsave('Figures/Weidner Fig 3.jpg', plot = Fig3, height = 6, width = 6, units = 'in', dpi = 300)
 
 # Cmpd Data - remove all wells without test compounds and put into tidy format ----------
 
@@ -198,10 +215,6 @@ SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>%
 # Merge plate summary data with estimated true values
 
 SummPerPlate2 = merge (SummPerPlate, EstTruth, by=c("Assay", "Sample"))
-
-# Put the two assays in alphabetical order
-
-SummPerPlate2$Assay = factor (SummPerPlate2$Assay, levels = c("Tgt1", "Tgt2"))
 
 ### Plot summary value per plate vs. estimated true value, means or medians
 
