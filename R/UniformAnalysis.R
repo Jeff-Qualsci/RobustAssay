@@ -88,8 +88,8 @@ T2Med<- ggplot(filter(UniformData, Assay == 'Tgt2', Scale == 'Median'), aes(x = 
   theme(axis.text.x = element_blank()) +
   labs(title = 'Tgt2 Median Scaled')
 
-Fig1 <- (T1Raw + T2Raw + T1Med + T2Med) +
-  plot_annotation(title = 'Figure 1.', tag_levels = 'A') &
+Fig2 <- (T1Raw + T2Raw + T1Med + T2Med) +
+  plot_annotation(title = 'Figure 2.', tag_levels = 'A') &
   theme(plot.tag = element_text(face = 'bold'))
 
-ggsave('Figures/Weidner Fig 1.jpg', plot = Fig1, height = 4, width = 8, units = 'in', dpi = 300)
+ggsave('Figures/Weidner Fig 2.jpg', plot = Fig2, height = 4, width = 8, units = 'in', dpi = 300)

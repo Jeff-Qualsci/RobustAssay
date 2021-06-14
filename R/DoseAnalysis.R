@@ -91,11 +91,11 @@ T2Mean <- ggplot(filter(PlateQCData, Assay == 'Tgt2', Scale == 'Mean'), aes(x = 
   theme(axis.text.x = element_blank()) +
   labs(title = 'Tgt2')
 
-Fig2 <- (T1Mean / T2Mean) +
-  plot_annotation(title = 'Figure 2 Plate Controls.', tag_levels = 'A') &
+Fig3 <- (T1Mean / T2Mean) +
+  plot_annotation(title = 'Figure 3 Plate Controls.', tag_levels = 'A') &
   theme(plot.tag = element_text(face = 'bold'))
 
-ggsave('Figures/Weidner Fig 2.jpg', plot = Fig2, height = 6, width = 6, units = 'in', dpi = 300)
+ggsave('Figures/Weidner Fig 3.jpg', plot = Fig3, height = 6, width = 6, units = 'in', dpi = 300)
 
 PlateQCData <- PlateQCData %>%
   group_by(Assay, Run, AssayPlate, Cmpd, Scale) %>%
@@ -149,11 +149,11 @@ Tgt2Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
        subtitle = get_test_label(ZCompTgt2, detailed= TRUE)) +
   theme(legend.position = 'none')
 
-Fig3 <- (Tgt1Zplot / Tgt2Zplot) +
-  plot_annotation(title = 'Figure 3 Standard and Robust Z Comparisons.', tag_levels = 'A') &
+Fig4 <- (Tgt1Zplot / Tgt2Zplot) +
+  plot_annotation(title = 'Figure 4. Standard and Robust Z Comparisons.', tag_levels = 'A') &
   theme(plot.tag = element_text(face = 'bold'))
 
-ggsave('Figures/Weidner Fig 3.jpg', plot = Fig3, height = 6, width = 6, units = 'in', dpi = 300)
+ggsave('Figures/Weidner Fig 4.jpg', plot = Fig4, height = 6, width = 6, units = 'in', dpi = 300)
 
 # Cmpd Data - remove all wells without test compounds and put into tidy format ----------
 
