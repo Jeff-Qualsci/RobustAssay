@@ -129,7 +129,7 @@ Tgt1Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt1'), x = 'ZFactor', y = 'Zval',
          fill = 'ZFactor',
          ylab = 'Z Value', xlab = 'Z Type') +
   stat_pvalue_manual(ZCompTgt1, tip.length = 0) +
-  labs(title = 'Tgt1',
+  labs(title = 'Tgt1 Z-Factors',
        subtitle = get_test_label(ZCompTgt1, detailed= TRUE)) +
   theme(legend.position = 'none')
 
@@ -145,7 +145,7 @@ Tgt2Zplot <- ggpaired(filter(ZComp, Assay == 'Tgt2'), x = 'ZFactor', y = 'Zval',
          fill = 'ZFactor',
          ylab = 'Z Value', xlab = 'Z Type') +
   stat_pvalue_manual(ZCompTgt2, tip.length = 0) +
-  labs(title = 'Tgt2 Z',
+  labs(title = 'Tgt2 Z-Factors',
        subtitle = get_test_label(ZCompTgt2, detailed= TRUE)) +
   theme(legend.position = 'none')
 
@@ -183,7 +183,6 @@ PlateActLims <- PlateQCData %>%
   select(Assay, AssayPlate, Scale, starts_with('TOTB_Z')) %>%
   mutate(ActLim = if_else(Scale == 'Mean', TOTB_ZLim, TOTB_ZLimRob)) %>%
   select(-starts_with('TOTB'))
-
 
 ### Phil picking up here ###
 # Working with CmpdData to define "True" activity based on overall mean or median activity per "compound"
