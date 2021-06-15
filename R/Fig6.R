@@ -51,7 +51,7 @@ T1ROC <- (T1N1sel/T1N1ppv/T1N4sel/T1N4ppv)
 T2ROC <- (T2N1sel/T2N1ppv/T2N4sel/T2N4ppv)
 
 Fig6 <- (T1ROC | T2ROC) +
-  plot_annotation(title = 'Figure 6. ROC Analysis', tag_levels = 'A') &
+  plot_annotation(title = 'Figure 6. Assay Performance Metrics', tag_levels = 'A') &
   theme(plot.tag = element_text(face = 'bold'))
 
 ggsave('Figures/Weidner Fig 6.jpg', plot = Fig6, height = 8, width = 6, units = 'in', dpi = 300)
