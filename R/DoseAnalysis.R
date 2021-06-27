@@ -9,13 +9,7 @@ library(ggpubr)
 library(rstatix)
 library(ROCR)
 library(ggplot2)
-library(cowplot)
 library(patchwork)
-
-# outlier_robust Calculate outliers using box plot criteria----
-outlier_robust <- function(x) {
-  x > quantile(x, 0.75) + (1.5 * IQR(x)) | x < quantile(x, 0.25) - (1.5 * IQR(x))
-}
 
 # Prepare data -------------------
 DRPlateMap <- read_csv('Data/Platemap.csv')
@@ -71,7 +65,7 @@ PlateQCData <- DoseData %>%
   mutate(Scale = if_else(str_detect(Scale, 'Mean'), 'Mean', 'Median')
          )
 
-# Create Control Well Plots
+# Create Control Well Plots Fig 3
 T1Mean <- ggplot(filter(PlateQCData, Assay == 'Tgt1', Scale == 'Mean'), aes(x = PlateId, y = Activity, fill = Cmpd)) +
   geom_boxplot() +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
@@ -97,6 +91,7 @@ Fig3 <- (T1Mean / T2Mean) +
 
 ggsave('Figures/Weidner Fig 3.jpg', plot = Fig3, height = 6, width = 6, units = 'in', dpi = 300)
 
+# Comparison of Standard and Robust Z-factors Fig 4
 PlateQCData <- PlateQCData %>%
   group_by(Assay, Run, AssayPlate, Cmpd, Scale) %>%
   summarise(Avg = mean(Activity),
@@ -109,8 +104,7 @@ PlateQCData <- PlateQCData %>%
   pivot_longer(cols = 6:11, names_to = 'StatType', values_to = 'StatVal') %>%
   pivot_wider(names_from = Cmpd | StatType, names_sep = '_', values_from = StatVal) %>%
   mutate(Z = (NSB_ZLim - TOTB_ZLim) / (NSB_Avg - TOTB_Avg),
-         Zrob = (NSB_ZLimRob - TOTB_ZLimRob) / (NSB_Med - TOTB_Med)
-  )
+         Zrob = (NSB_ZLimRob - TOTB_ZLimRob) / (NSB_Med - TOTB_Med))
 
 ZComp <- PlateQCData %>%
   select(Assay, Scale, AssayPlate, Z, Zrob)%>%
@@ -175,27 +169,18 @@ SampleSummData <- PlateSmplData %>%
   mutate(Activity = if_else(Scale == 'Mean', mean(Activity), median(Activity))) %>%
   ungroup()
 
-# Activity Well determination ------------------------
-
-# Plate Activity Limits are based on the within plate TOTB controls correspond to the Mean/Median PctAct + 3*(SD/Mad) consistent with the normalization mode (Scale). This represents a real time assessment of Active wells on the plate independent of sample replication information and could be used to determine activity for either individual wells or aggregated sample replicates on a sample plate.
-
-PlateActLims <- PlateQCData %>%
-  select(Assay, AssayPlate, Scale, starts_with('TOTB_Z')) %>%
-  mutate(ActLim = if_else(Scale == 'Mean', TOTB_ZLim, TOTB_ZLimRob)) %>%
-  select(-starts_with('TOTB'))
-
-### Phil picking up here ###
+# Active Well determination ------------------------
 # Working with CmpdData to define "True" activity based on overall mean or median activity per "compound"
 # Compound ID is the value in the Sample column
-
 # Calculate overall mean and median for each sample in each assay
 # First, split PctActivity into two columns, one for values based on mean controls, one based on median controls
 
 CmpdData2 = CmpdData %>% pivot_wider (names_from = "Scale", values_from = "Activity", names_prefix = "PctAct.")
 
-EstTruth = CmpdData2 %>% group_by (Assay, Sample) %>% summarize (true.n = sum (!is.na (PctAct.Mean)),
-                                                                 true.mean.est = mean (PctAct.Mean),
-                                                                 true.median.est = median (PctAct.Median))
+EstTruth = CmpdData2 %>% group_by (Assay, Sample) %>%
+  summarize (true.n = sum (!is.na (PctAct.Mean)),
+             true.mean.est = mean (PctAct.Mean),
+             true.median.est = median (PctAct.Median))
 
 # Calculate compound well summaries per Assay and plate, using both mean and median, regardless
 # of how the control wells are summarized.  In other words, we're going to look at 4 possiblities:
@@ -215,56 +200,79 @@ SummPerPlate = CmpdData2 %>% group_by (Assay, AssayPlate, PlateId, Sample) %>%
 
 SummPerPlate2 = merge (SummPerPlate, EstTruth, by=c("Assay", "Sample"))
 
-### Plot summary value per plate vs. estimated true value, means or medians
-
-ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
-
-ggplot (SummPerPlate2, aes(x=true.median.est, y=median.PctAct.Median)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
-
-(data1 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=mean.PctAct.Mean)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
-  ylab ("Mean Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
-  ggtitle ("Mean % Activity Per Plate vs. Estimated True Activity"))
-
-(data2 = ggplot (SummPerPlate2, aes(x=true.mean.est, y=median.PctAct.Median)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
-  ylab ("Median Percent Activity, n=4") + xlab ("Estimated True Percent Activity") +
-  ggtitle ("Median % Activity Per Plate vs. Estimated True Activity"))
-
-# Combined plot of the plate means vs. estimated true values
-
-plots.d1 = plot_grid (data1, data2, ncol=1)
-plots.d1
-ggsave('Figures/test-vs-truth-n4.jpg', plot = plots.d1)
-
 ### Plot the individual well values vs. estimate true values
 
 CmpdData3 = merge (CmpdData2, EstTruth, by=c("Assay", "Sample"))
 
-ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
+### Plot summary value per plate vs. estimated true value, means or medians. Fig 5
 
-ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both")
-CmpdData3$Assay = factor (CmpdData3$Assay, levels = c("Tgt1", "Tgt2"))
+T1EstTrueMeanN1 <- ggplot (filter(CmpdData3, Assay == 'Tgt1'), aes(x=true.mean.est, y=PctAct.Mean)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
+  labs(title = 'Tgt1 (N = 1)' )
 
-data3 = ggplot (CmpdData3, aes(x=true.mean.est, y=PctAct.Mean)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
-  ylab ("Percent Activity, Control Means") + xlab ("Estimated True Percent Activity") +
-  ggtitle ("Percent Activity per Well vs. Estimated True Activity")
+T2EstTrueMeanN1 <- ggplot (filter(CmpdData3, Assay == 'Tgt2'), aes(x=true.mean.est, y=PctAct.Mean)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
+  labs(title = 'Tgt2 (N = 1)' )
 
-data4 = ggplot (CmpdData3, aes(x=true.median.est, y=PctAct.Median)) +
-  geom_point() + facet_wrap (vars(Assay), labeller = "label_both") +
-  ylab ("Percent Activity, Control Medians") + xlab ("Estimated True Percent Activity") +
-  ggtitle ("Robust % Activity per Well vs. Estimated True Activity")
+T1EstTrueMedN1 <- ggplot (filter(CmpdData3, Assay == 'Tgt1'), aes(x=true.mean.est, y=PctAct.Median)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Median)') +
+  theme_classic() +
+  labs(title = 'Tgt1 (N = 1)' )
 
-plots.d2 = plot_grid (data3, data4, ncol=1)
-plots.d2
-ggsave('Figures/test-vs-truth-n1.jpg', plot = plots.d2)
+T2EstTrueMedN1 <- ggplot (filter(CmpdData3, Assay == 'Tgt2'), aes(x=true.mean.est, y=PctAct.Median)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Median)') +
+  theme_classic() +
+  labs(title = 'Tgt2 (N = 1)' )
 
-### Function to create ROC curve
+T1EstTrueMeanN4 <- ggplot (filter(SummPerPlate2, Assay == 'Tgt1'), aes(x=true.mean.est, y=mean.PctAct.Mean)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
+  labs(title = 'Tgt1 (N = 4)' )
+
+T2EstTrueMeanN4 <- ggplot (filter(SummPerPlate2, Assay == 'Tgt2'), aes(x=true.mean.est, y=mean.PctAct.Mean)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Mean)') +
+  theme_classic() +
+  labs(title = 'Tgt2 (N = 4)' )
+
+T1EstTrueMedN4 <- ggplot (filter(SummPerPlate2, Assay == 'Tgt1'), aes(x=true.mean.est, y=median.PctAct.Median)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Median)') +
+  theme_classic() +
+  labs(title = 'Tgt1 (N = 4)' )
+
+T2EstTrueMedN4 <- ggplot (filter(SummPerPlate2, Assay == 'Tgt2'), aes(x=true.mean.est, y=median.PctAct.Median)) +
+  geom_point() +
+  labs(x = 'Estimated True Pct. Activity',
+       y = 'Pct. Activity (Median)') +
+  theme_classic() +
+  labs(title = 'Tgt2 (N = 4)' )
+
+T1Scatter <- (T1EstTrueMeanN1/T1EstTrueMedN1/T1EstTrueMeanN4/T1EstTrueMedN4)
+
+T2Scatter <- (T2EstTrueMeanN1/T2EstTrueMedN1/T2EstTrueMeanN4/T2EstTrueMedN4)
+
+Fig5 <- (T1Scatter | T2Scatter) +
+  plot_annotation(title = 'Figure 5. Measured Data vs. Estimated Truth', tag_levels = 'A') &
+  theme(plot.tag = element_text(face = 'bold'))
+
+ggsave('Figures/Weidner Fig 5.jpg', plot = Fig5, height = 8, width = 6, units = 'in', dpi = 300)
+
+### Function to create ROC curve ------------------------------------------------------
 # Uses package, ROCR
 # Note that each vertex on the curve corresponds to a particular activity threshold
 # Precicted = observed percent activity per compound per plate
@@ -383,11 +391,6 @@ plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1)
 
 plot.results.Tgt1$Result = factor (plot.results.Tgt1$Result, levels = c("PPV", "NPV"))
 
-plot1 = ggplot (plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
-plot1
-
 T1N4ppv <- ggplot(plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") +
@@ -399,16 +402,11 @@ T1N4ppv <- ggplot(plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linet
 plot.results.Tgt1 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt1),
                                   c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
-plot2 = ggplot (plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
-plot2
-
 T1N4sel <- ggplot(plot.results.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt1, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") +
-  theme_classic()
-theme(legend.position = 'none')
+  theme_classic() +
+  theme(legend.position = 'none')
 
 ### Assay Tgt2, means
 
@@ -436,19 +434,14 @@ median.results.Tgt2 = rbind.data.frame (
   with (PerPlate.Tgt2, same.cutoff (median.PctAct.Median, true.median.est, 75)))
 median.results.Tgt2$Scale = "Median"
 
-### Plot Mean vs Median results for Tgt1
+### Plot Mean vs Median results for Tgt2
 
 plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt2, median.results.Tgt2),
                                   c("PPV", "NPV"), names_to = "Result", values_to = "Value")
 
 # Re-order PPV and NPV
 
-plot.results.Tgt2A$Result = factor (plot.results.Tgt2$Result, levels = c("PPV", "NPV"))
-
-plot3 = ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
-plot3
+plot.results.Tgt2$Result = factor (plot.results.Tgt2$Result, levels = c("PPV", "NPV"))
 
 T2N4ppv <- ggplot(plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
@@ -460,21 +453,10 @@ T2N4ppv <- ggplot(plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linet
 plot.results.Tgt2 = pivot_longer (rbind (mean.results.Tgt1, median.results.Tgt2),
                                   c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
-plot4 = ggplot (plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
-plot4
-
 T2N4sel <- ggplot(plot.results.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt2, N=4/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") +
   theme_classic()
-
-## Put the four plots above together into one plot
-
-plots.n4 = plot_grid (plot1, plot2, plot3, plot4, ncol=2)
-
-ggsave('Figures/N_4perSample.jpg', plot = plots.n4)
 
 ######################################################################
 ### Repeat the same-cutoff analysis above for the individual well values
@@ -514,11 +496,6 @@ plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt
 
 plot.Indiv.Tgt1$Result = factor (plot.Indiv.Tgt1$Result, levels = c("PPV", "NPV"))
 
-plot5 = ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
-plot5
-
 T1N1ppv = ggplot(plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") +
@@ -529,11 +506,6 @@ T1N1ppv = ggplot(plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype
 
 plot.Indiv.Tgt1 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt1),
                                 c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
-
-plot6 = ggplot (plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 1, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
-plot6
 
 T1N1sel <- ggplot(plot.Indiv.Tgt1, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
@@ -576,11 +548,6 @@ plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt2, Indiv.medianCtrl.Tgt
 
 plot.Indiv.Tgt2$Result = factor (plot.Indiv.Tgt2$Result, levels = c("PPV", "NPV"))
 
-plot7 = ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV")
-plot7
-
 T2N1ppv = ggplot(plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("PPV or NPV") +
@@ -591,22 +558,12 @@ T2N1ppv = ggplot(plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype
 plot.Indiv.Tgt2 = pivot_longer (rbind (Indiv.meanCtrl.Tgt1, Indiv.medianCtrl.Tgt2),
                                 c("sensitivity", "specificity"), names_to = "Result", values_to = "Value")
 
-plot8 = ggplot (plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
-  geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
-  ggtitle ("Target 2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity")
-plot8
-
 T2N1sel <- ggplot(plot.Indiv.Tgt2, aes (x=cutoff, y=Value, color=Result, linetype=Scale)) +
   geom_line(lwd=1.1) + theme_bw() + ylim (0.8, 1) +
   ggtitle ("Tgt2, N=1/Sample") + xlab("Activity Cutoff, %") + ylab("Sensitivity or Specificity") +
   theme_classic()
 
-## Put the four plots above together into one plot
-
-plots.n1 = plot_grid (plot5, plot6, plot7, plot8, ncol=2)
-plots.n1
-
-ggsave('Figures/N_1perSample.jpg', plot = plots.n1)
+## Put the four plots above together into one plot. Fig 6
 
 T1ROC <- (T1N1sel/T1N1ppv/T1N4sel/T1N4ppv)
 
