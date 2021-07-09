@@ -5,8 +5,7 @@
 library(tidyverse)
 library(lubridate)
 library(viridis)
-library(ggpubr)
-library(rstatix)
+library(patchwork)
 
 #rescale_mean -------------------------------------------
 rescale_mean <- function(x) {
@@ -26,12 +25,12 @@ outlier_robust <- function(x) {
 # Prepare data -------------------
 
   UniformData <- read_csv('Data/AllData.csv')%>%
-  filter(PlateMap == 'Uniform') %>%
+  filter(PlateMap == 'Uniform', PlateType != 'C') %>%
   select(-PlateMap) %>%
-  mutate(Assay = as_factor(Assay),
+  mutate(Assay = factor(Assay, levels = c("Tgt1", "Tgt2")),
          PlateType = as.character(PlateType),
          Well = as_factor(Well),
-         PlateId = as.character(PlateId)) %>%
+         PlateId = as_factor(PlateId)) %>%
   group_by(PlateId,ExpTime, Assay, PlateType) %>%
   nest() %>%
   mutate(ExpTime = mdy_hms(ExpTime),
@@ -50,16 +49,47 @@ outlier_robust <- function(x) {
   ) %>%
   ungroup()
 
-UnifPlot <- ggplot(UniformData, aes(x = PlateId, y = Data)) +
-  geom_boxplot(aes(color = PlateType)) +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, alpha = 0.5) +
-  labs(x = "Plate",
-       y = 'Data') +
-  scale_fill_viridis(discrete=TRUE) +
-  theme_minimal() +
+T1Raw<- ggplot(filter(UniformData, Assay == 'Tgt1', Scale == 'Raw'), aes(x = PlateId, y = Data, color = PlateType)) +
+  geom_boxplot() +
+  labs(x = 'Plate',
+       y = 'Raw Data') +
+  scale_color_viridis_d() +
+  theme_classic() +
   theme(axis.text.x = element_blank()) +
-  facet_grid(Scale ~ Assay, scales = 'free') +
-  labs(title = 'TOTB Plate Uniformity Data')
+  theme(legend.position = 'none') +
+  labs(title = 'Tgt1 Raw Data')
 
-ggsave('Figures/Fig1_uniformity.jpg', plot = UnifPlot)
+T2Raw<- ggplot(filter(UniformData, Assay == 'Tgt2', Scale == 'Raw'), aes(x = PlateId, y = Data, color = PlateType)) +
+  geom_boxplot() +
+  labs(x = 'Plate',
+       y = 'Data') +
+  scale_color_viridis_d() +
+  theme_classic() +
+  theme(axis.text.x = element_blank()) +
+  theme(legend.position = 'none') +
+  labs(title = 'Tgt2 Raw Data')
 
+T1Med<- ggplot(filter(UniformData, Assay == 'Tgt1', Scale == 'Median'), aes(x = PlateId, y = Data, color = PlateType)) +
+  geom_boxplot() +
+  labs(x = 'Plate',
+       y = 'Median Scaled Data') +
+  scale_color_viridis_d() +
+  theme_classic() +
+  theme(axis.text.x = element_blank()) +
+  theme(legend.position = 'none') +
+  labs(title = 'Tgt1 Median Scaled')
+
+T2Med<- ggplot(filter(UniformData, Assay == 'Tgt2', Scale == 'Median'), aes(x = PlateId, y = Data, color = PlateType)) +
+  geom_boxplot() +
+  labs(x = 'Plate',
+       y = 'Median Scaled Data') +
+  scale_color_viridis_d() +
+  theme_classic() +
+  theme(axis.text.x = element_blank()) +
+  labs(title = 'Tgt2 Median Scaled')
+
+Fig2 <- (T1Raw + T2Raw + T1Med + T2Med) +
+  plot_annotation(title = 'Figure 2.', tag_levels = 'A') &
+  theme(plot.tag = element_text(face = 'bold'))
+
+ggsave('Figures/Weidner Fig 2.jpg', plot = Fig2, height = 4, width = 8, units = 'in', dpi = 300)
